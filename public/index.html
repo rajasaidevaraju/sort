@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Image Organizer Pro</title>
+    <link rel="stylesheet" href="css/styles.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
+</head>
+
+<body>
+    <div class="app-container">
+        <header>
+            <h1>Image Organizer <span>Pro</span></h1>
+            <p>Reorder your images by updating their timestamps</p>
+        </header>
+
+        <section class="controls glass">
+            <div class="input-group">
+                <input type="text" id="folderPath" placeholder="Enter folder absolute path..." autocomplete="off">
+                <button id="browseBtn" class="secondary-btn">Browse</button>
+                <button id="loadBtn" class="primary-btn">Load Images</button>
+            </div>
+        </section>
+
+        <!-- Directory Picker Modal -->
+        <div id="dirPickerModal" class="modal-overlay hidden">
+            <div class="modal-content glass">
+                <div class="modal-header">
+                    <h2>Select Folder</h2>
+                    <button id="closeModal" class="close-btn">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <div id="currentDirDisplay" class="current-path"></div>
+                    <div id="dirExplorer" class="dir-explorer">
+                        <!-- Directories will be listed here -->
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button id="selectDirBtn" class="primary-btn">Select This Folder</button>
+                </div>
+            </div>
+        </div>
+
+        <main id="imageGrid" class="image-grid sortable">
+            <!-- Images will be loaded here -->
+            <div class="empty-state">
+                <p>Enter a folder path to start organizing</p>
+            </div>
+        </main>
+
+        <footer class="footer-controls glass hidden" id="footerControls">
+            <div class="info">
+                <span id="imageCount">0</span> images selected
+            </div>
+            <button id="renameBtn" class="success-btn">Save Order (Update Timestamps)</button>
+        </footer>
+    </div>
+
+    <div id="loader" class="loader-overlay hidden">
+        <div class="spinner"></div>
+        <p id="loaderText">Processing...</p>
+    </div>
+
+    <script src="js/app.js"></script>
+</body>
+
+</html>

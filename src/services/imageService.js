@@ -75,12 +75,8 @@ exports.browseDirectories = async (currentPath) => {
 
         const dirs = [];
         for (const item of items) {
-            if (item.name.startsWith('.')) continue;
-
             const fullPath = path.join(targetPath, item.name);
             try {
-                // Check if it's a directory OR a symlink pointing to a directory
-                // This is crucial for Termux where ~/storage is a symlink
                 const stats = fs.statSync(fullPath);
                 if (stats.isDirectory()) {
                     dirs.push({
@@ -89,7 +85,6 @@ exports.browseDirectories = async (currentPath) => {
                     });
                 }
             } catch (e) {
-                // Skip items we can't access (permission denied)
                 console.warn(`Cannot access ${fullPath}: ${e.message}`);
             }
         }

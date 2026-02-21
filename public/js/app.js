@@ -117,7 +117,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
             card.innerHTML = `
                 <div class="image-index">${index + 1}</div>
-                <img src="/api/images/thumbnail?imagePath=${encodeURIComponent(img.path)}" alt="${img.name}" loading="lazy">
+                <img src="/api/images/thumbnail?imagePath=${encodeURIComponent(img.path)}" 
+                     alt="${img.name}" 
+                     loading="lazy"
+                     onerror="this.src='https://placehold.co/150x120?text=Format+Not+Supported'; this.style.opacity='0.5';">
                 <div class="image-info">${img.name}</div>
             `;
             imageGrid.appendChild(card);

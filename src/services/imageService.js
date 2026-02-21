@@ -67,20 +67,40 @@ exports.updateImageOrder = async (images) => {
 };
 
 exports.browseDirectories = async (currentPath) => {
-    const targetPath = currentPath || process.cwd();
-    const items = await fs.readdir(targetPath, { withFileTypes: true });
+    try {
+        const targetPath = currentPath || process.cwd();
+        console.log(`Browsing directory: ${targetPath}`);
 
-    const dirs = items
-        .filter(item => item.isDirectory() && !item.name.startsWith('.'))
-        .map(item => ({
-            name: item.name,
-            path: path.join(targetPath, item.name)
-        }))
-        .sort((a, b) => a.name.localeCompare(b.name));
+        const items = await fs.readdir(targetPath, { withFileTypes: true });
 
-    return {
-        currentPath: path.resolve(targetPath),
-        parentPath: path.resolve(targetPath, '..'),
-        directories: dirs
-    };
+        const dirs = [];
+        for (const item of items) {
+            if (item.name.startsWith('.')) continue;
+
+            const fullPath = path.join(targetPath, item.name);
+            try {
+                // Check if it's a directory OR a symlink pointing to a directory
+                // This is crucial for Termux where ~/storage is a symlink
+                const stats = fs.statSync(fullPath);
+                if (stats.isDirectory()) {
+                    dirs.push({
+                        name: item.name,
+                        path: fullPath
+                    });
+                }
+            } catch (e) {
+                // Skip items we can't access (permission denied)
+                console.warn(`Cannot access ${fullPath}: ${e.message}`);
+            }
+        }
+
+        return {
+            currentPath: path.resolve(targetPath),
+            parentPath: path.resolve(targetPath, '..'),
+            directories: dirs.sort((a, b) => a.name.localeCompare(b.name))
+        };
+    } catch (err) {
+        console.error('Error in browseDirectories:', err);
+        throw err;
+    }
 };

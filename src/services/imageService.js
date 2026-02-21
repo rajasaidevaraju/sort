@@ -1,50 +1,42 @@
 const fs = require('fs-extra');
 const path = require('path');
 const { Jimp } = require('jimp');
-const piexif = require('piexifjs'); // Pure JS EXIF library
+const piexif = require('piexifjs');
+const { execSync } = require('child_process');
 const config = require('../config/config');
 const fileUtils = require('../utils/fileUtils');
 
 exports.listImages = async (folderPath) => {
     try {
         const files = await fs.readdir(folderPath);
-        const images = files
+        return files
             .filter(file => fileUtils.isImage(file))
             .map(file => ({
                 name: file,
                 path: path.join(folderPath, file),
                 ext: path.extname(file).toLowerCase()
             }));
-        return images;
     } catch (err) {
-        console.error('Error in listImages service:', err);
         throw err;
     }
 };
 
 exports.generateThumbnail = async (imagePath) => {
     try {
-        if (!fs.existsSync(imagePath)) {
-            throw new Error(`File does not exist: ${imagePath}`);
-        }
+        if (!fs.existsSync(imagePath)) throw new Error('File not found');
         const ext = path.extname(imagePath).toLowerCase();
-        if (ext === '.webp') {
-            throw new Error('WebP decoding not supported by Jimp');
-        }
+        if (ext === '.webp') throw new Error('WebP not supported by Jimp');
         const image = await Jimp.read(imagePath);
         image.resize({ w: config.thumbnailSize || 300 });
         return await image.getBuffer('image/jpeg');
     } catch (err) {
-        console.error(`Jimp error for ${path.basename(imagePath)}:`, err.message);
         throw err;
     }
 };
 
 exports.updateImageOrder = async (images) => {
     try {
-        console.log(`Deep-updating ${images.length} images (Filesystem + EXIF)...`);
-
-        // Use a date in the past to build the sequence
+        console.log(`Finalizing order for ${images.length} images...`);
         const startTime = Date.now() - (images.length * 1000);
 
         for (let i = 0; i < images.length; i++) {
@@ -54,14 +46,18 @@ exports.updateImageOrder = async (images) => {
             if (fs.existsSync(imagePath)) {
                 const targetDate = new Date(startTime + (i * 1000));
 
-                // 1. Update EXIF Metadata (For Gallery Apps)
-                // Only works for JPEG/JPG
                 if (ext === '.jpg' || ext === '.jpeg') {
                     try {
                         const jpegBuffer = fs.readFileSync(imagePath);
                         const jpegData = jpegBuffer.toString('binary');
 
-                        // Format: "YYYY:MM:DD HH:MM:SS"
+                        let exifObj = { "0th": {}, "Exif": {}, "GPS": {} };
+                        try {
+                            exifObj = piexif.load(jpegData);
+                        } catch (e) {
+                            console.log("Creating new EXIF header (none found)");
+                        }
+
                         const exifDate = targetDate.getFullYear() + ":" +
                             String(targetDate.getMonth() + 1).padStart(2, '0') + ":" +
                             String(targetDate.getDate()).padStart(2, '0') + " " +
@@ -69,28 +65,34 @@ exports.updateImageOrder = async (images) => {
                             String(targetDate.getMinutes()).padStart(2, '0') + ":" +
                             String(targetDate.getSeconds()).padStart(2, '0');
 
-                        const exifObj = { "0th": {}, "Exif": {} };
+                        // Update all standard date tags
                         exifObj["0th"][piexif.ImageIFD.DateTime] = exifDate;
                         exifObj["Exif"][piexif.ExifIFD.DateTimeOriginal] = exifDate;
                         exifObj["Exif"][piexif.ExifIFD.DateTimeDigitized] = exifDate;
 
                         const exifBytes = piexif.dump(exifObj);
                         const newJpegData = piexif.insert(exifBytes, jpegData);
-                        const newBuffer = Buffer.from(newJpegData, 'binary');
-
-                        fs.writeFileSync(imagePath, newBuffer);
-                        console.log(`Updated EXIF for: ${path.basename(imagePath)}`);
+                        fs.writeFileSync(imagePath, Buffer.from(newJpegData, 'binary'));
                     } catch (exifErr) {
-                        console.warn(`Could not update EXIF for ${imagePath}:`, exifErr.message);
+                        console.warn(`EXIF Update failed for ${path.basename(imagePath)}:`, exifErr.message);
                     }
                 }
 
-                // 2. Update Filesystem Timestamps (For File Managers)
                 await fs.utimes(imagePath, targetDate, targetDate);
+                const isTermux = process.env.PREFIX?.includes('com.termux');
+                if (isTermux) {
+                    try {
+                        execSync(`termux-media-scan "${imagePath}"`, { stdio: 'ignore' });
+                    } catch (e) {
+                        console.warn(`Media Scan failed for ${path.basename(imagePath)}:`, e.message);
+                    }
+                } else {
+                    console.warn("executing in non termux environment")
+                }
             }
         }
     } catch (err) {
-        console.error('Error in updateImageOrder service:', err);
+        console.error('Update Error:', err);
         throw err;
     }
 };
@@ -104,9 +106,7 @@ exports.browseDirectories = async (currentPath) => {
             const fullPath = path.join(targetPath, item.name);
             try {
                 const stats = fs.statSync(fullPath);
-                if (stats.isDirectory()) {
-                    dirs.push({ name: item.name, path: fullPath });
-                }
+                if (stats.isDirectory()) dirs.push({ name: item.name, path: fullPath });
             } catch (e) { }
         }
         return {
